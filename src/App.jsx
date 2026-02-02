@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
+import { Route, Routes, HashRouter as Router } from 'react-router-dom';
 import { AnimatePresence, MotionConfig } from 'framer-motion';
 import ScrollToTop from './components/ScrollToTop';
 import TitleScreen from './components/TitleScreen';
