@@ -1,17 +1,22 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// CHANGE THIS: The name of your repository exactly as it appears on GitHub
-const REPO_NAME = 'Legacy-Build' 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig({
+  // CRITICAL: This must match the repository name exactly
+  base: '/Legacy-Build/', 
   plugins: [react()],
-  // This ensures assets look for "./assets" instead of "/assets"
-  base: process.env.NODE_ENV === 'production' ? `/${REPO_NAME}/` : '/',
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
     },
   },
-})
+  build: {
+    sourcemap: true,
+    emptyOutDir: true,
+  },
+});
