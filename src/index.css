@@ -1,0 +1,59 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  --gamma: 1.0;
+  --ui-scale: 1.0;
+  --animation-speed: 1.0;
+  --font-scale: 1.0;
+}
+
+body {
+    @apply bg-slate-900 text-white;
+    font-family: 'Crimson Text', serif;
+    filter: brightness(var(--gamma));
+    font-size: calc(16px * var(--font-scale));
+}
+
+html.high-contrast body {
+    background-color: #000;
+    color: #fff;
+}
+
+html.high-contrast * {
+    border-color: #fff !important;
+}
+
+/* Custom Scrollbar for Ledger */
+.ledger-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ledger-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.ledger-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-garamond {
+  font-family: 'EB Garamond', serif;
+}
+
+.font-crimson {
+  font-family: 'Crimson Text', serif;
+}
+
+.font-mono {
+  font-family: 'Space Mono', monospace;
+}
