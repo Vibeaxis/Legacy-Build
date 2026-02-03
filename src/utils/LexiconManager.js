@@ -40,52 +40,64 @@ export const selectPromptWords = (signatureCount) => {
     const hasUnlockedPacks = unlockedPacks.length > 0;
     
     // 1. HELPER: Pick a random word for a category
+    // This logic mixes the "Core" words with any "Pack" words you've unlocked
     const pick = (category) => {
         // 30% chance to use a fancy pack word if available
         const usePack = hasUnlockedPacks && Math.random() < 0.30; 
         
         if (usePack) {
             const pack = unlockedPacks[Math.floor(Math.random() * unlockedPacks.length)];
-            const words = pack.words[category];
-            // Safety check: if pack has words, use one. Else fall back to core.
-            if (words && words.length > 0) return words[Math.floor(Math.random() * words.length)];
+            const words = pack.words[category]; // e.g. pack.words.nouns
+            
+            // Safety: If pack has words, return one. Else fallback.
+            if (words && words.length > 0) {
+                return words[Math.floor(Math.random() * words.length)];
+            }
         }
         
-        // Fallback to Core
+        // Default to Core Lexicon
         const core = CORE_LEXICON[category];
         return core[Math.floor(Math.random() * core.length)];
     };
 
-    // 2. DEFINE TEMPLATES (The "Structure" you were missing)
+    // 2. DEFINE TEMPLATES
+    // These ensure grammar is correct.
+    // {noun} = a person/place/thing
+    // {verb} = an action
+    // {sentiment} = an adverb/adjective describing how it happens
     const templates = [
-        "To {verb} the {sentiment} {noun}",
-        "A {noun} {verb} {sentiment}",
-        "{sentiment} {noun} awaits",
-        "The {noun} {verb}",
-        "Remember the {sentiment} {noun}",
-        "We {verb} in {sentiment}",
-        "{verb} your {noun}"
+        "To {verb} a {sentiment} {noun}",       // "To find a quiet home"
+        "The {noun} {verb} {sentiment}",        // "The mountain rises fiercely"
+        "A memory of {sentiment} {noun}",       // "A memory of distant stars"
+        "We {verb} the {noun}",                 // "We build the bridge"
+        "{sentiment}, the {noun} {verb}",       // "Quietly, the river flows"
+        "Where the {noun} {verb}",              // "Where the shadow falls"
+        "A {noun} to {verb}"                    // "A key to unlock"
     ];
 
     // 3. PICK & FILL
     const template = templates[Math.floor(Math.random() * templates.length)];
     
-    // Replace placeholders with actual words
-    // We use a regex to find anything inside {} and replace it using the 'pick' function
-    const promptPhrase = template.replace(/{(noun|verb|sentiment)}/g, (match, category) => {
-        // 'category' will be 'noun', 'verb', or 'sentiment'
-        // We pluralize 'sentiments' because your data likely uses the plural key
-        const dataKey = category === 'sentiment' ? 'sentiments' : category + 's'; 
-        return pick(dataKey);
-    });
+    // Pick the words first so we can return them as components too
+    const n = pick('nouns');
+    const v = pick('verbs');
+    const s = pick('sentiments');
+
+    // Replace placeholders with the picked words
+    const promptPhrase = template
+        .replace('{noun}', n)
+        .replace('{verb}', v)
+        .replace('{sentiment}', s);
 
     return {
-        text: promptPhrase, // The actual readable string
-        // We still return the raw words in case you want to tag/highlight them in UI
+        text: promptPhrase, // The readable sentence: "The mountain rises fiercely"
+        
+        // We return the raw components in case your UI wants to color-code them
+        // (e.g. make nouns blue, verbs red)
         components: {
-            noun: pick('nouns'), 
-            verb: pick('verbs'), 
-            sentiment: pick('sentiments')
+            noun: n,
+            verb: v,
+            sentiment: s
         }
     };
 };
