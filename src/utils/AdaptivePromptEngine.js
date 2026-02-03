@@ -1,4 +1,3 @@
-
 import { 
   TEMPORAL_SENTIMENTS
 } from './SentimentLexicon';
@@ -6,7 +5,6 @@ import { THREAD_FOLLOWUPS, THREAD_KEYWORDS } from './ThreadFollowups';
 import { FIXED_LEGACY_PROMPTS } from './FixedLegacyPrompts';
 import { selectPromptWords } from './LexiconManager';
 
-// Vibe tiers kept for UI compatibility
 export const VIBE_TIERS = {
   METHODICAL: 'Methodical',
   RAW: 'Raw',
@@ -43,7 +41,7 @@ export const detectThread = (promptText) => {
   return null;
 };
 
-// Helper: Check if Thread is Active
+// Helper: Check if Thread is Active (Now actually useful)
 export const isThreadActive = (threadID, activeThreadID) => {
   if (!threadID || !activeThreadID) return false;
   return threadID === activeThreadID;
@@ -56,24 +54,48 @@ export const getThreadFollowup = (threadID) => {
   
   const text = getRandomItem(followups);
   return { 
-    prompt: text, 
+    prompt: text,
+    vibeTier: VIBE_TIERS.METHODICAL, // Threads usually feel methodical/story-driven
     metadata: {
       category: 'Thread',
       threadID: threadID,
       rarity: 'rare', 
+      type: 'followup',
       components: { action: 'Thread', object: 'Followup', sentiment: threadID }
     }
   };
 };
 
-export const PromptAssembler = (primaryStyle, continuityModifier, scaleStr, consistencyScore = 50, lastUsedTags = [], signatureCount = 0) => {
+// --- THE FIXED ASSEMBLER ---
+export const PromptAssembler = (
+    primaryStyle, 
+    continuityModifier, 
+    scaleStr, 
+    consistencyScore = 50, 
+    lastUsedTags = [], 
+    signatureCount = 0,
+    activeThreadID = null // ADDED: Critical missing param
+) => {
   
-  // 10% chance for Fixed Legacy Prompt
+  // 1. CRITICAL PRIORITY: Active Thread Check
+  // If we are already in a thread, we MUST try to continue it first.
+  if (activeThreadID) {
+      // 70% chance to continue thread (scales with consistency if you want)
+      const continueChance = (consistencyScore / 100) + 0.2; 
+      
+      if (Math.random() < continueChance) {
+          const followup = getThreadFollowup(activeThreadID);
+          if (followup) return followup;
+      }
+  }
+
+  // 2. Fixed Legacy Prompt (10% Chance)
+  // Lowered slightly to 10% to let adaptive logic shine
   if (Math.random() < 0.10) {
       const fixedPrompt = generateFixedLegacyPrompt();
       return {
           prompt: fixedPrompt.text,
-          vibeTier: VIBE_TIERS.RAW, // Fixed prompts feel Raw/Mythic
+          vibeTier: VIBE_TIERS.RAW, 
           metadata: {
               category: 'Legacy',
               rarity: fixedPrompt.rarity,
@@ -82,7 +104,7 @@ export const PromptAssembler = (primaryStyle, continuityModifier, scaleStr, cons
       };
   }
 
-  // 1. Calculate Weights for Vibe/Category (Standard Logic)
+  // 3. Calculate Weights for Vibe/Category
   let weights = {
     [CATEGORIES.NOSTALGIA.name]: 0,
     [CATEGORIES.AMBITION.name]: 0,
@@ -113,13 +135,15 @@ export const PromptAssembler = (primaryStyle, continuityModifier, scaleStr, cons
   const categoryKey = Object.keys(CATEGORIES).find(key => CATEGORIES[key].name === selectedCategoryName);
   const selectedCategory = CATEGORIES[categoryKey];
 
-  // 2. Fetch Words using new Selection Logic (80/20 Core/Pack)
-  const { noun, verb, sentiment } = selectPromptWords(signatureCount);
+  // 4. Fetch Words 
+  // We pass consistencyScore to help LexiconManager (if it supports it) decide how wild to get
+  const { noun, verb, sentiment } = selectPromptWords(signatureCount, consistencyScore);
 
   const promptString = `${verb} ${noun} ${sentiment}`;
   
-  // Detect Thread
-  const detectedThread = detectThread(promptString);
+  // 5. Detect New Threads
+  // Only detect a NEW thread if we aren't already inside one
+  const detectedThread = !activeThreadID ? detectThread(promptString) : activeThreadID;
 
   return {
     prompt: promptString,
@@ -128,7 +152,7 @@ export const PromptAssembler = (primaryStyle, continuityModifier, scaleStr, cons
       category: selectedCategory.name,
       styleInfluence: primaryStyle,
       scaleInfluence: scaleStr,
-      threadID: detectedThread,
+      threadID: detectedThread, // Pass this back so the UI knows we entered/stayed in a thread
       rarity: 'common',
       type: "template",
       usedTags: [],
@@ -142,13 +166,14 @@ export const PromptAssembler = (primaryStyle, continuityModifier, scaleStr, cons
 };
 
 export const getAdaptivePrompt = () => {
-  return PromptAssembler('Monastic', 'Fluid', 'Medium', 50, [], 0);
+  return PromptAssembler('Monastic', 'Fluid', 'Medium', 50, [], 0, null);
 };
 
-export const getAdaptivePromptWithSentiment = (metrics, styleData, consistency, lastUsedTags = [], signatureCount = 0) => {
+// Updated Wrapper to pass the active thread
+export const getAdaptivePromptWithSentiment = (metrics, styleData, consistency, lastUsedTags = [], signatureCount = 0, activeThreadID = null) => {
   const primaryStyle = styleData?.primaryStyle || 'Monastic';
   const continuityLabel = styleData?.secondaryStyleLabel || 'Fluid';
   const scale = metrics?.scale || 'Medium';
 
-  return PromptAssembler(primaryStyle, continuityLabel, scale, consistency, lastUsedTags, signatureCount);
+  return PromptAssembler(primaryStyle, continuityLabel, scale, consistency, lastUsedTags, signatureCount, activeThreadID);
 };
