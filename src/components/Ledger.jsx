@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, Filter, ArrowUp, ArrowDown, Book, Award } from 'lucide-react';
+import { X, Search, Filter, ArrowUp, ArrowDown, Book, Award, SlidersHorizontal } from 'lucide-react';
 import { useHistory } from '../context/HistoryContext';
 import ThumbnailPreview from './ThumbnailPreview';
 import TrophyCase from './TrophyCase';
@@ -28,7 +28,7 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
 
     // 2. Sort (assuming history comes in chronological order)
     if (sortOrder === 'newest') {
-      return data.reverse(); 
+      return [...data].reverse(); 
     }
     return data;
   }, [history, filter, sortOrder]);
@@ -80,21 +80,38 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
                         {/* Grid */}
                         <div className="flex-1 overflow-y-auto p-6 ledger-scrollbar">
                             <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-4">
-                                {filteredHistory.map((entry) => (
-                                    <div 
-                                        key={entry.id}
-                                        onClick={() => setSelectedEntry(entry)}
-                                        className={`
-                                            relative aspect-square cursor-pointer transition-all duration-200 border-2 rounded bg-white p-2
-                                            ${selectedEntry?.id === entry.id ? 'border-[#3e2723] ring-2 ring-[#3e2723]/20 scale-105 shadow-md z-10' : 'border-transparent hover:border-[#8d6e63]/50'}
-                                            ${activeReplayId === entry.id ? 'ring-2 ring-green-500' : ''}
-                                        `}
-                                    >
-                                        <ThumbnailPreview svgPath={entry.svgPath} inkColor={entry.inkColor} className="w-full h-full pointer-events-none" />
-                                        {entry.promptMetadata?.rarity === 'mythic' && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500 shadow-sm animate-pulse" />}
-                                    </div>
-                                ))}
+                                {filteredHistory.map((entry) => {
+                                    const isMythic = entry.promptMetadata?.rarity === 'mythic';
+                                    const isLegacy = entry.promptMetadata?.type === 'fixed_legacy';
+                                    
+                                    return (
+                                        <div 
+                                            key={entry.id}
+                                            onClick={() => setSelectedEntry(entry)}
+                                            className={`
+                                                relative aspect-square cursor-pointer transition-all duration-200 border-2 rounded bg-white p-2
+                                                ${selectedEntry?.id === entry.id ? 'border-[#3e2723] ring-2 ring-[#3e2723]/20 scale-105 shadow-md z-10' : 'border-transparent hover:border-[#8d6e63]/50'}
+                                                ${activeReplayId === entry.id ? 'ring-2 ring-green-500' : ''}
+                                                ${isLegacy ? 'border-orange-400' : isMythic ? 'border-yellow-400' : ''}
+                                            `}
+                                        >
+                                            <ThumbnailPreview 
+                                                svgPath={entry.svgPath} 
+                                                inkColor={entry.inkColor} 
+                                                isReplaying={activeReplayId === entry.id}
+                                                className="w-full h-full pointer-events-none" 
+                                            />
+                                            {isMythic && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500 shadow-sm animate-pulse" />}
+                                        </div>
+                                    );
+                                })}
                             </div>
+                            {filteredHistory.length === 0 && (
+                                <div className="flex flex-col items-center justify-center h-full text-[#8d6e63] opacity-50">
+                                    <Book size={48} className="mb-2 stroke-1" />
+                                    <p className="font-typewriter text-sm">No records found.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -125,6 +142,7 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
                                             {selectedEntry.usedTags?.map(tag => (
                                                 <span key={tag} className="text-[10px] px-2 py-1 bg-[#d7ccc8] text-[#5d4037] rounded-full font-mono">#{tag}</span>
                                             ))}
+                                            {(!selectedEntry.usedTags || selectedEntry.usedTags.length === 0) && <span className="text-xs italic opacity-50">No tags</span>}
                                         </div>
                                     </DetailBox>
                                 </div>
@@ -135,8 +153,9 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
                             </div>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-[#8d6e63] opacity-50 p-8 text-center">
-                                <Search size={48} className="mb-4" />
+                                <Search size={48} className="mb-4 stroke-1" />
                                 <p className="font-playfair text-xl italic">Select a Record</p>
+                                <p className="text-xs font-typewriter mt-2 max-w-[200px]">Choose a signature from the registry to inspect its properties.</p>
                             </div>
                         )}
                     </div>
@@ -152,6 +171,40 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
   );
 };
 
+// Subcomponents for cleaner code
+const TabButton = ({ active, onClick, icon: Icon, label }) => (
+    <button 
+        onClick={onClick}
+        className={`flex items-center gap-2 px-4 py-2 rounded text-xs uppercase font-bold tracking-widest transition-all
+            ${active 
+                ? 'bg-[#3e2723] text-[#f4e4bc] shadow-md' 
+                : 'text-[#5d4037] hover:bg-[#3e2723]/10'}
+        `}
+    >
+        <Icon size={14} /> {label}
+    </button>
+);
 
+const FilterButton = ({ active, onClick, label }) => (
+    <button 
+        onClick={onClick}
+        className={`px-3 py-1 rounded text-[10px] uppercase font-bold tracking-wider border transition-colors
+            ${active 
+                ? 'bg-[#5d4037] text-white border-[#5d4037]' 
+                : 'bg-transparent text-[#5d4037] border-[#8d6e63]/30 hover:border-[#5d4037]'}
+        `}
+    >
+        {label}
+    </button>
+);
+
+const DetailBox = ({ title, children }) => (
+    <div className="bg-[#f4e4bc] p-4 rounded border border-[#d7ccc8]">
+        <h4 className="font-bold text-xs uppercase text-[#5d4037] mb-2 tracking-wide border-b border-[#8d6e63]/20 pb-1">
+            {title}
+        </h4>
+        {children}
+    </div>
+);
 
 export default Ledger;
