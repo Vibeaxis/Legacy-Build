@@ -1,173 +1,157 @@
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X, Search, Filter, ArrowUp, ArrowDown, Book, Award } from 'lucide-react';
 import { useHistory } from '../context/HistoryContext';
 import ThumbnailPreview from './ThumbnailPreview';
 import TrophyCase from './TrophyCase';
-import { Tag, Scroll, Award } from 'lucide-react';
 
-const Ledger = ({ onReplay, activeReplayId, vibeTier }) => {
+const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
   const { history } = useHistory();
-  const scrollRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('journal'); // 'journal' or 'trophy'
+  const [activeTab, setActiveTab] = useState('journal');
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [filter, setFilter] = useState('all'); 
+  const [sortOrder, setSortOrder] = useState('newest');
 
-  useEffect(() => {
-    if (activeTab === 'journal' && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // Filter & Sort Logic
+  const filteredHistory = useMemo(() => {
+    let data = [...history];
+
+    // 1. Filter
+    if (filter !== 'all') {
+      data = data.filter(entry => {
+        if (filter === 'mythic') return entry.promptMetadata?.rarity === 'mythic';
+        if (filter === 'rare') return entry.promptMetadata?.rarity === 'rare';
+        if (filter === 'legacy') return entry.promptMetadata?.type === 'fixed_legacy';
+        return true;
+      });
     }
-  }, [history, activeTab]);
+
+    // 2. Sort (assuming history comes in chronological order)
+    if (sortOrder === 'newest') {
+      return data.reverse(); 
+    }
+    return data;
+  }, [history, filter, sortOrder]);
+
+  if (!isOpen) return null;
 
   return (
-    <motion.div 
-      initial={{ x: -300, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
-      className="fixed left-0 top-0 bottom-0 w-80 bg-[#f4e4bc] border-r-4 border-[#3e2723] shadow-2xl z-20 flex flex-col pointer-events-auto transform -rotate-1 origin-top-left"
-      style={{
-        backgroundImage: `url("https://www.transparenttextures.com/patterns/aged-paper.png"), linear-gradient(to right, #e3d2a5, #f4e4bc 20%, #f4e4bc 90%, #dcc795)`,
-      }}
-    >
-      <div className="p-6 border-b-2 border-double border-[#5d4037] bg-opacity-50">
-        <h2 className="font-playfair text-3xl font-bold text-[#3e2723] text-center tracking-widest uppercase mb-1">The Ledger</h2>
-        <p className="font-garamond italic text-[#5d4037] text-center text-sm">Official Registry of Marks</p>
-        
-        {/* Tabs */}
-        <div className="flex justify-center mt-4 gap-2">
-            <button 
-                onClick={() => setActiveTab('journal')}
-                className={`flex items-center gap-1 px-3 py-1 rounded text-xs uppercase font-bold tracking-wider transition-colors
-                    ${activeTab === 'journal' 
-                        ? 'bg-[#3e2723] text-[#f4e4bc]' 
-                        : 'bg-[#d7ccc8] text-[#5d4037] hover:bg-[#bcaaa4]'}
-                `}
-            >
-                <Scroll size={12} /> Journal
-            </button>
-            <button 
-                onClick={() => setActiveTab('trophy')}
-                className={`flex items-center gap-1 px-3 py-1 rounded text-xs uppercase font-bold tracking-wider transition-colors
-                    ${activeTab === 'trophy' 
-                        ? 'bg-[#3e2723] text-[#f4e4bc]' 
-                        : 'bg-[#d7ccc8] text-[#5d4037] hover:bg-[#bcaaa4]'}
-                `}
-            >
-                <Award size={12} /> Trophy Case
-            </button>
-        </div>
-      </div>
-
-      <div 
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 ledger-scrollbar relative"
-        style={{
-          boxShadow: 'inset 0 0 40px rgba(62, 39, 35, 0.1)'
-        }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm">
+      <div className="absolute inset-0" onClick={onClose} />
+      
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="relative w-full max-w-6xl h-[85vh] bg-[#f4e4bc] rounded shadow-2xl overflow-hidden flex flex-col border border-[#5d4037]"
+        style={{ backgroundImage: `url("https://www.transparenttextures.com/patterns/aged-paper.png")` }}
       >
-        {activeTab === 'journal' ? (
-            <div className="grid grid-cols-4 gap-3 content-start">
-                <AnimatePresence>
-                {history.length === 0 && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 0.5 }}
-                        className="col-span-4 font-typewriter text-[#5d4037] text-center mt-10 text-sm"
-                    >
-                    No records found.
-                    <br/>
-                    Awaiting signature...
-                    </motion.div>
-                )}
+        {/* Header */}
+        <div className="h-16 flex items-center justify-between px-6 border-b border-[#8d6e63]/30 bg-[#3e2723]/5">
+            <div className="flex items-center gap-4">
+                <h2 className="font-playfair text-2xl font-bold text-[#3e2723] tracking-widest uppercase">The Ledger</h2>
+                <div className="h-6 w-px bg-[#8d6e63]/50 mx-2" />
+                <div className="flex gap-2">
+                    <TabButton active={activeTab === 'journal'} onClick={() => setActiveTab('journal')} icon={Book} label="Registry" />
+                    <TabButton active={activeTab === 'trophy'} onClick={() => setActiveTab('trophy')} icon={Award} label="Trophies" />
+                </div>
+            </div>
+            <button onClick={onClose} className="p-2 text-[#5d4037] hover:bg-[#3e2723]/10 rounded-full transition-colors"><X size={24} /></button>
+        </div>
 
-                {history.map((entry, index) => {
-                    const isMythic = entry.promptMetadata?.rarity === 'mythic';
-                    const isRare = entry.promptMetadata?.rarity === 'rare';
-                    const isLegacy = entry.promptMetadata?.type === 'fixed_legacy';
-                    const tags = entry.usedTags || [];
-                    
-                    // Check continuity with previous entry
-                    const prevEntry = index > 0 ? history[index-1] : null;
-                    const prevTags = prevEntry?.usedTags || [];
-                    const sharedTags = tags.filter(t => prevTags.includes(t));
-                    const hasContinuity = sharedTags.length > 0;
-
-                    return (
-                    <motion.div
-                        key={entry.id}
-                        layout
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                        className="relative group cursor-pointer"
-                        onClick={() => onReplay(entry.id)}
-                    >
-                        {/* Continuity Line */}
-                        {hasContinuity && (
-                            <div className="absolute -left-1.5 top-1/2 w-3 h-0.5 bg-[#8d6e63] opacity-40 -translate-y-1/2 z-0" />
-                        )}
-
-                        <ThumbnailPreview 
-                            svgPath={entry.svgPath} 
-                            inkColor={entry.inkColor} 
-                            isReplaying={activeReplayId === entry.id}
-                            className={`
-                                ${isLegacy ? "border-[#ff9800] ring-2 ring-[#ff9800]/50" : 
-                                isMythic ? "border-[#ffd700] ring-1 ring-[#ffd700]/50" : 
-                                isRare ? "border-gray-400" : ""}
-                            `}
-                        />
-                        
-                        {/* Badge */}
-                        {(isMythic || isLegacy) && <div className={`absolute -top-1 -right-1 w-2 h-2 rounded-full shadow-md animate-pulse ${isLegacy ? 'bg-[#ff9800]' : 'bg-[#ffd700]'}`} />}
-                        
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-3 bg-[#3e2723] text-[#f4e4bc] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity w-64 pointer-events-none z-50 border border-[#8d6e63] shadow-lg">
-                            <div className={`font-bold mb-1 font-playfair leading-tight ${isLegacy ? 'text-[#ff9800]' : isMythic ? 'text-[#ffd700]' : 'text-[#ffcc80]'}`}>
-                            "{entry.promptTitle}"
+        {/* Content */}
+        <div className="flex-1 flex overflow-hidden">
+            {activeTab === 'journal' ? (
+                <>
+                    {/* Left Page: Grid */}
+                    <div className="w-full md:w-2/3 flex flex-col border-r border-[#8d6e63]/30">
+                        {/* Toolbar */}
+                        <div className="p-3 flex justify-between items-center bg-[#f4e4bc] border-b border-[#8d6e63]/20">
+                            <div className="flex gap-2">
+                                <FilterButton active={filter === 'all'} onClick={() => setFilter('all')} label="All" />
+                                <FilterButton active={filter === 'mythic'} onClick={() => setFilter('mythic')} label="Mythic" />
+                                <FilterButton active={filter === 'rare'} onClick={() => setFilter('rare')} label="Rare" />
                             </div>
-                            
-                            {entry.promptMetadata && (
-                                <div className="mb-2 text-[9px] text-gray-400 italic border-b border-gray-600 pb-1">
-                                    {isLegacy ? 'LEGACY PROMPT' : `${entry.promptMetadata.category}-weighted`}
-                                    {entry.promptMetadata.threadID && <span className="block text-[#e0e0e0]">Thread: {entry.promptMetadata.threadID}</span>}
-                                </div>
-                            )}
-
-                            {/* Tags Display */}
-                            {tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {tags.map(tag => (
-                                        <span key={tag} className={`text-[8px] px-1 rounded ${sharedTags.includes(tag) ? 'bg-[#ffcc80] text-[#3e2723]' : 'bg-[#5d4037] text-[#bcaaa4]'}`}>
-                                            {tag}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="italic text-[11px] text-gray-300 mb-1">
-                            {entry.secondaryStyleLabel ? `${entry.secondaryStyleLabel} ` : ''}{entry.primaryStyle || entry.styleTag}
-                            </div>
-                            
-                            <div className="flex justify-between items-center text-[9px] text-gray-500 border-t border-gray-600 pt-1 mt-1">
-                                <span>Conf: {entry.styleConfidence || '?'}%</span>
+                            <button onClick={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')} className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-[#5d4037]">
+                                {sortOrder === 'newest' ? <ArrowDown size={14}/> : <ArrowUp size={14}/>} {sortOrder}
+                            </button>
+                        </div>
+                        
+                        {/* Grid */}
+                        <div className="flex-1 overflow-y-auto p-6 ledger-scrollbar">
+                            <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-4">
+                                {filteredHistory.map((entry) => (
+                                    <div 
+                                        key={entry.id}
+                                        onClick={() => setSelectedEntry(entry)}
+                                        className={`
+                                            relative aspect-square cursor-pointer transition-all duration-200 border-2 rounded bg-white p-2
+                                            ${selectedEntry?.id === entry.id ? 'border-[#3e2723] ring-2 ring-[#3e2723]/20 scale-105 shadow-md z-10' : 'border-transparent hover:border-[#8d6e63]/50'}
+                                            ${activeReplayId === entry.id ? 'ring-2 ring-green-500' : ''}
+                                        `}
+                                    >
+                                        <ThumbnailPreview svgPath={entry.svgPath} inkColor={entry.inkColor} className="w-full h-full pointer-events-none" />
+                                        {entry.promptMetadata?.rarity === 'mythic' && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500 shadow-sm animate-pulse" />}
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </motion.div>
-                    );
-                })}
-                </AnimatePresence>
-            </div>
-        ) : (
-            <TrophyCase />
-        )}
-      </div>
+                    </div>
 
-      <div className="p-4 border-t border-[#8d6e63] bg-[#efebe9] bg-opacity-30">
-        <div className="w-full h-1 bg-[#3e2723] opacity-20 mb-1"></div>
-        <div className="w-full h-px bg-[#3e2723] opacity-20"></div>
-        <p className="text-center font-typewriter text-[10px] text-[#5d4037] mt-2 opacity-60">CONFIDENTIAL - EYES ONLY</p>
-      </div>
-    </motion.div>
+                    {/* Right Page: Details */}
+                    <div className="w-full md:w-1/3 bg-[#ece0c6] flex flex-col border-l border-[#8d6e63]/10 shadow-inner relative z-10">
+                        {selectedEntry ? (
+                            <div className="p-8 flex flex-col h-full overflow-y-auto">
+                                <div className="text-center mb-6">
+                                    <p className="font-typewriter text-xs text-[#8d6e63] mb-2 uppercase tracking-widest">Entry #{selectedEntry.id.slice(0,6)}</p>
+                                    <div className="w-48 h-48 mx-auto bg-white shadow-lg border border-[#d7ccc8] p-4 rounded-sm rotate-1 mb-6">
+                                        <ThumbnailPreview svgPath={selectedEntry.svgPath} inkColor={selectedEntry.inkColor} className="w-full h-full" />
+                                    </div>
+                                    <h3 className="font-playfair text-xl font-bold text-[#3e2723] leading-tight mb-2">"{selectedEntry.promptTitle}"</h3>
+                                </div>
+                                
+                                <div className="space-y-4 flex-1">
+                                    <DetailBox title="Vibe Check">
+                                        <div className="flex justify-between text-xs text-[#5d4037]">
+                                            <span>Style</span><span className="font-bold">{selectedEntry.primaryStyle}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-[#5d4037] mt-1">
+                                            <span>Confidence</span><span className="font-mono">{selectedEntry.styleConfidence}%</span>
+                                        </div>
+                                    </DetailBox>
+                                    
+                                    <DetailBox title="Components">
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedEntry.usedTags?.map(tag => (
+                                                <span key={tag} className="text-[10px] px-2 py-1 bg-[#d7ccc8] text-[#5d4037] rounded-full font-mono">#{tag}</span>
+                                            ))}
+                                        </div>
+                                    </DetailBox>
+                                </div>
+
+                                <button onClick={() => onReplay(selectedEntry.id)} className="mt-6 w-full py-3 bg-[#3e2723] text-[#f4e4bc] font-bold uppercase tracking-widest text-xs hover:bg-[#5d4037] transition-colors rounded shadow-lg">
+                                    Replay Signature
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-[#8d6e63] opacity-50 p-8 text-center">
+                                <Search size={48} className="mb-4" />
+                                <p className="font-playfair text-xl italic">Select a Record</p>
+                            </div>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <div className="w-full h-full overflow-hidden p-6 bg-[#e0f2f1]/20">
+                    <TrophyCase />
+                </div>
+            )}
+        </div>
+      </motion.div>
+    </div>
   );
 };
+
+
 
 export default Ledger;
