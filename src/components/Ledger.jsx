@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, Filter, ArrowUp, ArrowDown, Book, Award, SlidersHorizontal } from 'lucide-react';
+import { X, Search, Filter, ArrowUp, ArrowDown, Book, Award } from 'lucide-react';
 import { useHistory } from '../context/HistoryContext';
 import ThumbnailPreview from './ThumbnailPreview';
 import TrophyCase from './TrophyCase';
@@ -11,6 +11,9 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [filter, setFilter] = useState('all'); 
   const [sortOrder, setSortOrder] = useState('newest');
+
+  // SAFETY FIX: If parent doesn't pass isOpen, default to TRUE so it shows up.
+  const showLedger = isOpen === undefined ? true : isOpen;
 
   // Filter & Sort Logic
   const filteredHistory = useMemo(() => {
@@ -26,17 +29,18 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
       });
     }
 
-    // 2. Sort (assuming history comes in chronological order)
+    // 2. Sort
     if (sortOrder === 'newest') {
       return [...data].reverse(); 
     }
     return data;
   }, [history, filter, sortOrder]);
 
-  if (!isOpen) return null;
+  if (!showLedger) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm">
+      {/* Close on click outside */}
       <div className="absolute inset-0" onClick={onClose} />
       
       <motion.div 
@@ -46,26 +50,48 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
         className="relative w-full max-w-6xl h-[85vh] bg-[#f4e4bc] rounded shadow-2xl overflow-hidden flex flex-col border border-[#5d4037]"
         style={{ backgroundImage: `url("https://www.transparenttextures.com/patterns/aged-paper.png")` }}
       >
-        {/* Header */}
+        {/* Header & Tabs */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-[#8d6e63]/30 bg-[#3e2723]/5">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
                 <h2 className="font-playfair text-2xl font-bold text-[#3e2723] tracking-widest uppercase">The Ledger</h2>
-                <div className="h-6 w-px bg-[#8d6e63]/50 mx-2" />
-                <div className="flex gap-2">
-                    <TabButton active={activeTab === 'journal'} onClick={() => setActiveTab('journal')} icon={Book} label="Registry" />
-                    <TabButton active={activeTab === 'trophy'} onClick={() => setActiveTab('trophy')} icon={Award} label="Trophies" />
+                
+                {/* NAVIGATION TABS */}
+                <div className="flex gap-2 bg-[#8d6e63]/10 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setActiveTab('journal')}
+                        className={`flex items-center gap-2 px-4 py-1.5 rounded text-xs uppercase font-bold tracking-widest transition-all
+                            ${activeTab === 'journal' 
+                                ? 'bg-[#3e2723] text-[#f4e4bc] shadow-md' 
+                                : 'text-[#5d4037] hover:bg-[#3e2723]/10'}
+                        `}
+                    >
+                        <Book size={14} /> Registry
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('trophy')}
+                        className={`flex items-center gap-2 px-4 py-1.5 rounded text-xs uppercase font-bold tracking-widest transition-all
+                            ${activeTab === 'trophy' 
+                                ? 'bg-[#3e2723] text-[#f4e4bc] shadow-md' 
+                                : 'text-[#5d4037] hover:bg-[#3e2723]/10'}
+                        `}
+                    >
+                        <Award size={14} /> Trophies
+                    </button>
                 </div>
             </div>
-            <button onClick={onClose} className="p-2 text-[#5d4037] hover:bg-[#3e2723]/10 rounded-full transition-colors"><X size={24} /></button>
+
+            <button onClick={onClose} className="p-2 text-[#5d4037] hover:bg-[#3e2723]/10 rounded-full transition-colors">
+                <X size={24} />
+            </button>
         </div>
 
-        {/* Content */}
+        {/* Content Area */}
         <div className="flex-1 flex overflow-hidden">
             {activeTab === 'journal' ? (
                 <>
-                    {/* Left Page: Grid */}
+                    {/* LEFT PAGE: GRID */}
                     <div className="w-full md:w-2/3 flex flex-col border-r border-[#8d6e63]/30">
-                        {/* Toolbar */}
+                        {/* Filters Toolbar */}
                         <div className="p-3 flex justify-between items-center bg-[#f4e4bc] border-b border-[#8d6e63]/20">
                             <div className="flex gap-2">
                                 <FilterButton active={filter === 'all'} onClick={() => setFilter('all')} label="All" />
@@ -77,7 +103,7 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
                             </button>
                         </div>
                         
-                        {/* Grid */}
+                        {/* Signature Grid */}
                         <div className="flex-1 overflow-y-auto p-6 ledger-scrollbar">
                             <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-4">
                                 {filteredHistory.map((entry) => {
@@ -106,8 +132,9 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
                                     );
                                 })}
                             </div>
+                            
                             {filteredHistory.length === 0 && (
-                                <div className="flex flex-col items-center justify-center h-full text-[#8d6e63] opacity-50">
+                                <div className="flex flex-col items-center justify-center h-full text-[#8d6e63] opacity-50 min-h-[200px]">
                                     <Book size={48} className="mb-2 stroke-1" />
                                     <p className="font-typewriter text-sm">No records found.</p>
                                 </div>
@@ -115,16 +142,29 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
                         </div>
                     </div>
 
-                    {/* Right Page: Details */}
+                    {/* RIGHT PAGE: INSPECTION */}
                     <div className="w-full md:w-1/3 bg-[#ece0c6] flex flex-col border-l border-[#8d6e63]/10 shadow-inner relative z-10">
+                        {/* Background Texture Overlay */}
+                        <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-multiply" style={{ backgroundImage: `url("https://www.transparenttextures.com/patterns/paper-fibers.png")` }} />
+
                         {selectedEntry ? (
-                            <div className="p-8 flex flex-col h-full overflow-y-auto">
+                            <div className="p-8 flex flex-col h-full overflow-y-auto relative z-20">
                                 <div className="text-center mb-6">
-                                    <p className="font-typewriter text-xs text-[#8d6e63] mb-2 uppercase tracking-widest">Entry #{selectedEntry.id.slice(0,6)}</p>
+                                    <p className="font-typewriter text-xs text-[#8d6e63] mb-2 uppercase tracking-widest">
+                                        Entry #{selectedEntry.id.substring(0,6)}
+                                    </p>
+                                    
+                                    {/* Large Preview Card */}
                                     <div className="w-48 h-48 mx-auto bg-white shadow-lg border border-[#d7ccc8] p-4 rounded-sm rotate-1 mb-6">
-                                        <ThumbnailPreview svgPath={selectedEntry.svgPath} inkColor={selectedEntry.inkColor} className="w-full h-full" />
+                                        <ThumbnailPreview 
+                                            svgPath={selectedEntry.svgPath} 
+                                            inkColor={selectedEntry.inkColor} 
+                                            className="w-full h-full" 
+                                        />
                                     </div>
-                                    <h3 className="font-playfair text-xl font-bold text-[#3e2723] leading-tight mb-2">"{selectedEntry.promptTitle}"</h3>
+                                    <h3 className="font-playfair text-xl font-bold text-[#3e2723] leading-tight mb-2">
+                                        "{selectedEntry.promptTitle}"
+                                    </h3>
                                 </div>
                                 
                                 <div className="space-y-4 flex-1">
@@ -147,12 +187,15 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
                                     </DetailBox>
                                 </div>
 
-                                <button onClick={() => onReplay(selectedEntry.id)} className="mt-6 w-full py-3 bg-[#3e2723] text-[#f4e4bc] font-bold uppercase tracking-widest text-xs hover:bg-[#5d4037] transition-colors rounded shadow-lg">
+                                <button 
+                                    onClick={() => onReplay(selectedEntry.id)} 
+                                    className="mt-6 w-full py-3 bg-[#3e2723] text-[#f4e4bc] font-bold uppercase tracking-widest text-xs hover:bg-[#5d4037] transition-colors rounded shadow-lg"
+                                >
                                     Replay Signature
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-[#8d6e63] opacity-50 p-8 text-center">
+                            <div className="flex-1 flex flex-col items-center justify-center text-[#8d6e63] opacity-50 p-8 text-center relative z-20">
                                 <Search size={48} className="mb-4 stroke-1" />
                                 <p className="font-playfair text-xl italic">Select a Record</p>
                                 <p className="text-xs font-typewriter mt-2 max-w-[200px]">Choose a signature from the registry to inspect its properties.</p>
@@ -171,19 +214,7 @@ const Ledger = ({ isOpen, onClose, onReplay, activeReplayId }) => {
   );
 };
 
-// Subcomponents for cleaner code
-const TabButton = ({ active, onClick, icon: Icon, label }) => (
-    <button 
-        onClick={onClick}
-        className={`flex items-center gap-2 px-4 py-2 rounded text-xs uppercase font-bold tracking-widest transition-all
-            ${active 
-                ? 'bg-[#3e2723] text-[#f4e4bc] shadow-md' 
-                : 'text-[#5d4037] hover:bg-[#3e2723]/10'}
-        `}
-    >
-        <Icon size={14} /> {label}
-    </button>
-);
+// --- SUBCOMPONENTS ---
 
 const FilterButton = ({ active, onClick, label }) => (
     <button 
