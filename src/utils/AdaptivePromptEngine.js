@@ -1,3 +1,9 @@
+import { 
+  TEMPORAL_SENTIMENTS
+} from './SentimentLexicon';
+import { THREAD_FOLLOWUPS, THREAD_KEYWORDS } from './ThreadFollowups';
+import { FIXED_LEGACY_PROMPTS } from './FixedLegacyPrompts';
+import { selectPromptWords } from './LexiconManager';
 export const VIBE_TIERS = {
   METHODICAL: 'Methodical',
   RAW: 'Raw',
