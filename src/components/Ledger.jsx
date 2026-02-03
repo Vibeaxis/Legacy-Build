@@ -1,24 +1,38 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHistory } from '../context/HistoryContext';
 import ThumbnailPreview from './ThumbnailPreview';
 import TrophyCase from './TrophyCase';
-import { Tag, Scroll, Award, BookOpen, X, ChevronRight } from 'lucide-react';
+import { 
+    Scroll, 
+    Award, 
+    BookOpen, 
+    X, 
+    ChevronRight, 
+    Search, 
+    ArrowDownUp, 
+    Sparkles 
+} from 'lucide-react';
 
 const Ledger = ({ onReplay, activeReplayId, vibeTier }) => {
   const { history } = useHistory();
   const scrollRef = useRef(null);
   
-  // State for Modal Open/Close and Tabs
+  // State for Modal, Tabs, and Filters
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('journal'); // 'journal' or 'trophy'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortType, setSortType] = useState('newest'); // 'newest', 'oldest', 'quality', 'rarity'
 
-  // Scroll to bottom on new history if open
+  // Scroll to bottom only on initial open if sorting is default
   useEffect(() => {
-    if (isOpen && activeTab === 'journal' && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (isOpen && activeTab === 'journal' && scrollRef.current && sortType === 'newest') {
+      // Small timeout to ensure DOM is rendered
+      setTimeout(() => {
+          if (scrollRef.current) scrollRef.current.scrollTop = 0; // Newest is at top now
+      }, 100);
     }
-  }, [history, activeTab, isOpen]);
+  }, [isOpen, activeTab, sortType]);
 
   // Handle closing via Escape key
   useEffect(() => {
@@ -28,6 +42,47 @@ const Ledger = ({ onReplay, activeReplayId, vibeTier }) => {
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
+
+  // --- Filtering & Sorting Logic ---
+  const processedHistory = useMemo(() => {
+      let data = [...history];
+
+      // 1. Filter
+      if (searchTerm) {
+          const lowerTerm = searchTerm.toLowerCase();
+          data = data.filter(entry => 
+            entry.promptTitle.toLowerCase().includes(lowerTerm) ||
+            (entry.primaryStyle && entry.primaryStyle.toLowerCase().includes(lowerTerm)) || 
+            (entry.usedTags && entry.usedTags.some(t => t.toLowerCase().includes(lowerTerm)))
+          );
+      }
+
+      // 2. Sort
+      data.sort((a, b) => {
+          switch(sortType) {
+              case 'newest': return b.id - a.id;
+              case 'oldest': return a.id - b.id;
+              case 'quality': return (b.styleConfidence || 0) - (a.styleConfidence || 0);
+              case 'rarity': 
+                  const getRarityWeight = (r) => {
+                      if (r === 'mythic') return 3;
+                      if (r === 'rare') return 2;
+                      return 1;
+                  };
+                  const rA = getRarityWeight(a.promptMetadata?.rarity);
+                  const rB = getRarityWeight(b.promptMetadata?.rarity);
+                  return rB - rA || b.id - a.id; // Fallback to time
+              default: return b.id - a.id;
+          }
+      });
+
+      return data;
+  }, [history, searchTerm, sortType]);
+
+  const handleEntryClick = (id) => {
+      onReplay(id);
+      setIsOpen(false); // <--- CLOSES MODAL AUTOMATICALLY
+  };
 
   return (
     <>
@@ -118,6 +173,51 @@ const Ledger = ({ onReplay, activeReplayId, vibeTier }) => {
                 </div>
               </div>
 
+              {/* SEARCH & SORT CONTROLS (Only for Journal) */}
+              {activeTab === 'journal' && (
+                <div className="px-4 py-3 border-b border-[#8d6e63] bg-[#efebe9]/50 flex flex-col gap-2">
+                    {/* Search Input */}
+                    <div className="relative">
+                        <input 
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search marks..."
+                            className="w-full bg-transparent border-b border-[#8d6e63] text-[#3e2723] text-xs py-1 pl-6 focus:outline-none focus:border-[#3e2723] placeholder-[#8d6e63]/50 font-typewriter"
+                        />
+                        <Search size={12} className="absolute left-0 top-1/2 -translate-y-1/2 text-[#8d6e63]" />
+                    </div>
+
+                    {/* Sort Buttons */}
+                    <div className="flex justify-between items-center">
+                        <span className="text-[9px] uppercase tracking-widest text-[#5d4037] font-bold">Sort By:</span>
+                        <div className="flex gap-1">
+                             <button 
+                                onClick={() => setSortType('newest')}
+                                title="Time"
+                                className={`p-1 rounded ${sortType === 'newest' || sortType === 'oldest' ? 'bg-[#3e2723] text-[#f4e4bc]' : 'text-[#5d4037] hover:bg-[#d7ccc8]'}`}
+                            >
+                                <ArrowDownUp size={12} />
+                             </button>
+                             <button 
+                                onClick={() => setSortType('quality')}
+                                title="Confidence"
+                                className={`p-1 rounded ${sortType === 'quality' ? 'bg-[#3e2723] text-[#f4e4bc]' : 'text-[#5d4037] hover:bg-[#d7ccc8]'}`}
+                            >
+                                <Award size={12} />
+                             </button>
+                             <button 
+                                onClick={() => setSortType('rarity')}
+                                title="Rarity"
+                                className={`p-1 rounded ${sortType === 'rarity' ? 'bg-[#3e2723] text-[#f4e4bc]' : 'text-[#5d4037] hover:bg-[#d7ccc8]'}`}
+                            >
+                                <Sparkles size={12} />
+                             </button>
+                        </div>
+                    </div>
+                </div>
+              )}
+
               {/* Scrollable Content */}
               <div 
                 ref={scrollRef}
@@ -128,30 +228,30 @@ const Ledger = ({ onReplay, activeReplayId, vibeTier }) => {
               >
                 {activeTab === 'journal' ? (
                   <div className="grid grid-cols-4 gap-3 content-start">
-                    <AnimatePresence>
-                      {history.length === 0 && (
+                    <AnimatePresence mode='popLayout'>
+                      {processedHistory.length === 0 && (
                         <motion.div 
                           initial={{ opacity: 0 }} 
                           animate={{ opacity: 0.5 }}
                           className="col-span-4 font-typewriter text-[#5d4037] text-center mt-10 text-sm"
                         >
-                          No records found.
-                          <br/>
-                          Awaiting signature...
+                          {searchTerm ? 'No matches found.' : 'No records found.'}
                         </motion.div>
                       )}
 
-                      {history.map((entry, index) => {
+                      {processedHistory.map((entry, index) => {
                         const isMythic = entry.promptMetadata?.rarity === 'mythic';
                         const isRare = entry.promptMetadata?.rarity === 'rare';
                         const isLegacy = entry.promptMetadata?.type === 'fixed_legacy';
                         const tags = entry.usedTags || [];
                         
-                        // Check continuity with previous entry
-                        const prevEntry = index > 0 ? history[index-1] : null;
+                        // Check continuity (only visual relevant if sorted by time)
+                        // If sorting by quality/rarity, continuity lines look weird, so we hide them unless sorting by ID
+                        const isTimeSorted = sortType === 'newest' || sortType === 'oldest';
+                        const prevEntry = index > 0 ? processedHistory[index-1] : null;
                         const prevTags = prevEntry?.usedTags || [];
                         const sharedTags = tags.filter(t => prevTags.includes(t));
-                        const hasContinuity = sharedTags.length > 0;
+                        const hasContinuity = isTimeSorted && sharedTags.length > 0;
 
                         return (
                           <motion.div
@@ -159,9 +259,10 @@ const Ledger = ({ onReplay, activeReplayId, vibeTier }) => {
                             layout
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
                             transition={{ type: "spring", stiffness: 200, damping: 20 }}
                             className="relative group cursor-pointer"
-                            onClick={() => onReplay(entry.id)}
+                            onClick={() => handleEntryClick(entry.id)}
                           >
                             {/* Continuity Line */}
                             {hasContinuity && (
@@ -182,7 +283,7 @@ const Ledger = ({ onReplay, activeReplayId, vibeTier }) => {
                             {/* Badge */}
                             {(isMythic || isLegacy) && <div className={`absolute -top-1 -right-1 w-2 h-2 rounded-full shadow-md animate-pulse ${isLegacy ? 'bg-[#ff9800]' : 'bg-[#ffd700]'}`} />}
                             
-                            {/* Tooltip (Fixed: adjusted Z and positioning for modal context) */}
+                            {/* Tooltip */}
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-3 bg-[#3e2723] text-[#f4e4bc] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity w-64 pointer-events-none z-[60] border border-[#8d6e63] shadow-lg">
                               <div className={`font-bold mb-1 font-playfair leading-tight ${isLegacy ? 'text-[#ff9800]' : isMythic ? 'text-[#ffd700]' : 'text-[#ffcc80]'}`}>
                                 "{entry.promptTitle}"
