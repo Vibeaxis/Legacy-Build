@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, animate } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, RefreshCw } from 'lucide-react'; // Added RefreshCw for subtle UI
 import PromptDisplay from './PromptDisplay';
 import WaxSealButton from './WaxSealButton';
 import Ledger from './Ledger';
@@ -13,7 +12,7 @@ import AchievementToast from './AchievementToast';
 import SettingsButton from './SettingsButton';
 import SettingsModal from './SettingsModal';
 import { useHistory } from '../context/HistoryContext';
-import { useSettings } from '../context/SettingsContext'; // Added
+import { useSettings } from '../context/SettingsContext';
 import { 
     calculateVelocity, 
     calculateComplexity, 
@@ -46,7 +45,7 @@ const InteractiveDrawingCanvas = () => {
   const [inkColor, setInkColor] = useState('#2c3e50'); 
   const [promptData, setPromptData] = useState({ prompt: 'Sign the Declaration', vibeTier: VIBE_TIERS.METHODICAL, metadata: {} });
   const [isStampPressed, setIsStampPressed] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Settings Modal State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Real-time ink flow state
   const [inkFlowParams, setInkFlowParams] = useState({ blurValue: 1, opacity: 1 });
@@ -84,7 +83,7 @@ const InteractiveDrawingCanvas = () => {
     clearAchievementQueue
   } = useHistory();
   
-  const { settings } = useSettings(); // Use settings
+  const { settings } = useSettings();
 
   // Inkwell Color Palette
   const colorPalette = [
@@ -107,7 +106,6 @@ const InteractiveDrawingCanvas = () => {
 
   const legacyVibe = getLegacyVibeTier(promptData.vibeTier);
 
-  // Calculate Wax Color for Current Prompt
   const currentWaxColor = useMemo(() => {
     const sentiment = analyzeSentiment(promptData.prompt);
     const colorData = determineSealColor(sentiment);
@@ -124,10 +122,10 @@ const InteractiveDrawingCanvas = () => {
     AtmosphereController.setVibeTier(legacyVibe);
   }, [legacyVibe]);
 
-  const getNextColor = () => {
-    const nextIndex = (colorIndex + 1) % colorPalette.length;
-    setColorIndex(nextIndex);
-    return colorPalette[nextIndex];
+  // Updated to handle manual selection
+  const selectColor = (index) => {
+    setColorIndex(index);
+    setInkColor(colorPalette[index].hex);
   };
 
   const calculateInkFlowFilter = (velocity) => {
@@ -271,7 +269,6 @@ const InteractiveDrawingCanvas = () => {
     if (allStrokes.length === 0 || replayMode) return;
     
     setIsStampPressed(true);
-    // Sound played inside WaxSealButton
     animateDryingEffect();
     setTimeout(() => setIsStampPressed(false), 200);
     
@@ -293,7 +290,6 @@ const InteractiveDrawingCanvas = () => {
         height: Math.max(...ys) - Math.min(...ys) 
     };
 
-    // Metrics
     const velocity = calculateVelocity(pathLength, timeTaken);
     const complexity = calculateComplexity(combinedPath);
     const density = calculateDensity(pathLength, boundingBox);
@@ -322,7 +318,6 @@ const InteractiveDrawingCanvas = () => {
     const secondaryStyleLabel = continuityRatio > 80 ? 'Fluid' : (continuityRatio < 40 ? 'Fragmented' : '');
     const displayStyle = secondaryStyleLabel ? `${secondaryStyleLabel} ${primaryStyle}` : primaryStyle;
 
-    // Save with Wax Color
     addSignature(
         combinedPath, 
         inkColor, 
@@ -337,12 +332,10 @@ const InteractiveDrawingCanvas = () => {
         }
     );
     
-    // Update Memory with Tags
     if (promptData.metadata?.usedTags) {
         setLastUsedTags(promptData.metadata.usedTags);
     }
 
-    // Toast
     setCurrentStyleData({
         styleTag: primaryStyle,
         secondaryStyle: displayStyle,
@@ -355,7 +348,6 @@ const InteractiveDrawingCanvas = () => {
     });
     setToastVisible(true);
 
-    // Reset & Next Prompt Logic
     setTimeout(() => {
         setAllStrokes([]);
         setCurrentStroke([]);
@@ -374,25 +366,21 @@ const InteractiveDrawingCanvas = () => {
             }
         }
 
-      // ... previous manual logic ...
-
         if (!nextData) {
-            // UPDATED: Now passing 'currentThread' as the final argument
-            // This ensures the engine knows we are inside a thread and generates relevant follow-ups
              nextData = getAdaptivePromptWithSentiment(
                 fullMetrics,
                 { primaryStyle, secondaryStyleLabel }, 
                 consistency,
                 lastUsedTags,
                 history.length,
-                currentThread // <--- ADD THIS!
+                currentThread
             );
         }
         
         setPromptData(nextData);
         
-        const nextCol = getNextColor();
-        setInkColor(nextCol.hex);
+        // Don't auto-switch color anymore, let user decide, or just random
+        // const nextCol = getNextColor(); 
         setStartTime(null);
     }, 600);
   };
@@ -426,7 +414,6 @@ const InteractiveDrawingCanvas = () => {
 
   const canViewReport = history.length >= 30 && !reportGenerated;
 
-  // Use CSS variable for scaling from settings
   const containerStyle = {
       transform: `scale(var(--ui-scale))`,
       transformOrigin: 'top center'
@@ -464,8 +451,8 @@ const InteractiveDrawingCanvas = () => {
       />
       
       <AchievementToast 
-         achievements={recentAchievementsQueue} 
-         onClose={handleAchievementClose} 
+          achievements={recentAchievementsQueue} 
+          onClose={handleAchievementClose} 
       />
 
       <StrokeReport 
@@ -476,30 +463,30 @@ const InteractiveDrawingCanvas = () => {
 
       <AnimatedBackground />
 
-      <div className="relative z-20 hidden md:block w-80 h-full">
+      <div className="relative z-20 hidden md:block w-0">
           <Ledger onReplay={replaySignature} activeReplayId={activeReplayId} vibeTier={legacyVibe} />
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-between min-h-screen py-8 px-4 ml-0 md:ml-12">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center min-h-screen p-4">
           
           <motion.div 
             id="desk-container"
-            animate={isStampPressed ? { x: [-1, 1, -1, 1, 0], y: [0, 1, 0] } : {}}
+            animate={isStampPressed ? { y: [0, 2, 0] } : {}}
             transition={{ duration: 0.15, ease: "easeInOut" }}
-            className={`w-full h-full flex flex-col items-center justify-between transition-shadow duration-150 ${isStampPressed ? 'drop-shadow-2xl' : ''}`}
+            className="w-full h-full max-w-6xl flex flex-col items-center justify-center gap-6"
           >
-              <div className="py-6 mt-4 w-full text-center min-h-[160px] flex items-center justify-center relative">
-                <AnimatePresence>
+              
+              {/* --- 1. PROMPT AREA (Floating above paper) --- */}
+              <div className="w-full text-center relative z-20 -mb-4">
+                 <AnimatePresence>
                     {canViewReport && (
                         <motion.button
-                            initial={{ opacity: 0, y: -20, scale: 0.8 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
                             onClick={handleGenerateReport}
-                            className="absolute top-0 right-0 md:right-10 bg-[#ff9800] text-[#3e2723] px-4 py-2 rounded-full shadow-lg flex items-center gap-2 font-bold uppercase tracking-wider text-xs border-2 border-[#3e2723] hover:bg-[#ffcc80] transition-colors z-50 animate-bounce"
+                            className="absolute -top-12 right-0 bg-[#ff9800] text-[#3e2723] px-4 py-2 rounded-full shadow-lg flex items-center gap-2 font-bold uppercase tracking-wider text-xs border-2 border-[#3e2723] hover:bg-[#ffcc80] transition-colors animate-bounce"
                         >
-                            <BookOpen size={16} />
-                            Read Your Story
+                            <BookOpen size={16} /> Read Your Story
                         </motion.button>
                     )}
                 </AnimatePresence>
@@ -508,20 +495,12 @@ const InteractiveDrawingCanvas = () => {
                      <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex flex-col items-center gap-2"
-                     >
-                         <h2 className="font-playfair text-2xl text-[#bcaaa4] italic">Replaying from Archives</h2>
-                         <p className="font-playfair text-4xl text-[#eaddcf] font-bold">"{replayData.promptTitle}"</p>
-                         <div className="flex flex-col items-center text-[#ffcc80] italic text-sm gap-1">
-                            <p>Style: {replayData.styleTag}</p>
-                            {replayData.promptMetadata && (
-                                <p className="text-[#8d6e63] text-xs opacity-80">
-                                   ({replayData.promptMetadata.category}-weighted, {replayData.promptMetadata.styleInfluence} influence)
-                                </p>
-                            )}
-                         </div>
-                         <button onClick={exitReplay} className="mt-2 px-4 py-1 text-xs border border-[#8d6e63] text-[#bcaaa4] rounded hover:bg-[#3e2723]/30 transition-colors">Stop Replay</button>
-                     </motion.div>
+                        className="flex flex-col items-center gap-1 mb-6"
+                      >
+                          <h2 className="font-playfair text-xl text-[#bcaaa4] italic">Replaying from Archives</h2>
+                          <p className="font-playfair text-3xl text-[#eaddcf] font-bold">"{replayData.promptTitle}"</p>
+                          <button onClick={exitReplay} className="mt-2 px-4 py-1 text-xs border border-[#8d6e63] text-[#bcaaa4] rounded hover:bg-[#3e2723]/30 transition-colors">Stop Replay</button>
+                      </motion.div>
                 ) : (
                     <PromptDisplay 
                         prompt={promptData.prompt} 
@@ -533,9 +512,25 @@ const InteractiveDrawingCanvas = () => {
                 )}
               </div>
 
-              <div className="flex-1 flex items-center justify-center w-full max-w-5xl my-4 relative">
-                <div className="absolute inset-0 rounded-lg bg-white/5 blur-3xl opacity-20 pointer-events-none"></div>
-                <div className={`relative w-full h-[500px] ${replayMode ? 'cursor-default' : 'cursor-none'}`}>
+              {/* --- 2. THE PAPER (Defined Workspace) --- */}
+              <div className="relative w-full max-w-4xl aspect-[1.5/1] md:aspect-[1.8/1] shadow-2xl rounded-sm z-10">
+                {/* Paper Visual Layer */}
+                <div 
+                    className="absolute inset-0 bg-[#f4e4bc] rounded-sm pointer-events-none"
+                    style={{
+                        backgroundImage: `url("https://www.transparenttextures.com/patterns/aged-paper.png"), linear-gradient(to bottom right, #f4e4bc, #eaddcf)`,
+                        boxShadow: '0 20px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 100px rgba(62, 39, 35, 0.1)'
+                    }}
+                />
+                
+                {/* Faint Grid Lines */}
+                <div 
+                    className="absolute inset-8 border border-[#3e2723] border-opacity-5 pointer-events-none" 
+                    style={{ backgroundImage: 'radial-gradient(#3e2723 0.5px, transparent 0)', backgroundSize: '20px 20px', opacity: 0.1 }}
+                />
+
+                {/* The SVG Interaction Layer */}
+                <div className={`relative w-full h-full ${replayMode ? 'cursor-default' : 'cursor-none'}`}>
                   <svg
                     ref={svgRef}
                     className={`w-full h-full touch-none ${!replayMode && 'cursor-crosshair'}`}
@@ -545,7 +540,7 @@ const InteractiveDrawingCanvas = () => {
                     onPointerLeave={handlePointerUp}
                     style={{ 
                         touchAction: 'none',
-                        filter: `drop-shadow(2px 2px 2px rgba(0,0,0,0.4))` 
+                        filter: `drop-shadow(1px 1px 2px rgba(0,0,0,0.3))` 
                     }}
                   >
                     <defs>
@@ -583,9 +578,6 @@ const InteractiveDrawingCanvas = () => {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     fill="none"
-                                    style={{ 
-                                        opacity: 1
-                                    }}
                                     initial={{ pathLength: 0, opacity: 0 }}
                                     animate={{ pathLength: 1, opacity: 1 }}
                                     />
@@ -611,49 +603,68 @@ const InteractiveDrawingCanvas = () => {
                 </div>
               </div>
 
-              <div className="py-8 pb-12 h-40 flex items-center justify-center relative">
-                {!replayMode && (
-                    <>
-                         <WaxSealButton 
+              {/* --- 3. BOTTOM TOOLS (Seal & Ink) --- */}
+              <div className="flex flex-col-reverse md:flex-row items-center justify-between w-full max-w-4xl gap-6 md:gap-0 z-20">
+                
+                {/* Ink Palette */}
+                <div className="flex items-center gap-3 bg-black/20 p-2 rounded-full backdrop-blur-sm border border-[#5d4037]/30">
+                     <span className="text-[10px] text-[#eaddcf] uppercase tracking-widest pl-2 font-bold opacity-60">Ink</span>
+                     {colorPalette.map((color, idx) => (
+                         <button
+                            key={color.hex}
+                            onClick={() => selectColor(idx)}
+                            className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 relative group
+                                ${colorIndex === idx ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-70 hover:opacity-100'}
+                            `}
+                            style={{ backgroundColor: color.hex }}
+                            title={color.name}
+                         >
+                            {/* Tooltip */}
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#3e2723] text-[#f4e4bc] text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
+                                {color.name}
+                            </span>
+                         </button>
+                     ))}
+                </div>
+
+                {/* Seal Button (Centered relative to group roughly) */}
+                <div className="relative">
+                    {!replayMode && (
+                        <WaxSealButton 
                             onSeal={handleSealComplete} 
                             disabled={allStrokes.length === 0} 
                             waxColor={currentWaxColor}
                         />
-                         
-                         {/* Consistency Score Indicator */}
-                         {settings.gameplay.showConsistency && isDrawing && (
-                             <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 bg-black/40 rounded text-xs text-[#8d6e63]"
-                             >
-                                 Speed: {currentVelocity.toFixed(2)}
-                             </motion.div>
-                         )}
-                    </>
-                )}
+                    )}
+                </div>
+
+                {/* Right Side Info / Inkwell Image */}
+                <div className="flex items-center justify-end w-[240px]">
+                    {settings.gameplay.showConsistency && isDrawing && (
+                        <div className="text-right">
+                            <span className="text-xs text-[#bcaaa4] font-mono block">Velocity</span>
+                            <span className="text-xl text-[#ffcc80] font-mono">{currentVelocity.toFixed(2)}</span>
+                        </div>
+                    )}
+                     <div className="relative w-16 h-16 ml-4 opacity-80 mix-blend-hard-light">
+                        <img 
+                            src="https://images.unsplash.com/photo-1478641300939-0ec5188d3802?q=80&w=200&auto=format&fit=crop" 
+                            alt="Inkwell"
+                            className="w-full h-full object-contain"
+                        />
+                        {/* Dynamic ink color in the well */}
+                        <div 
+                            className="absolute top-[40%] left-[10%] right-[10%] bottom-[20%] rounded-full blur-md opacity-60 transition-colors duration-500"
+                            style={{ backgroundColor: inkColor }}
+                        />
+                     </div>
+                </div>
+
               </div>
           </motion.div>
 
-          <div className="absolute bottom-8 right-8 pointer-events-none opacity-90 hidden md:block">
-             <div className="relative w-32 h-32">
-                <img 
-                    src="https://images.unsplash.com/photo-1478641300939-0ec5188d3802?q=80&w=200&auto=format&fit=crop" 
-                    alt="Inkwell"
-                    className="w-full h-full object-contain drop-shadow-2xl opacity-80 mix-blend-hard-light mask-image-gradient"
-                    style={{ maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)' }}
-                />
-                {!replayMode && (
-                    <motion.div 
-                        className="absolute top-1/2 left-1/2 w-8 h-8 rounded-full blur-xl transform -translate-x-1/2 -translate-y-1/2"
-                        animate={{ backgroundColor: inkColor }}
-                        transition={{ duration: 1 }}
-                    />
-                )}
-             </div>
-          </div>
         </div>
-      </motion.div>
+    </motion.div>
   );
 };
 
