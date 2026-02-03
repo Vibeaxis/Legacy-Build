@@ -374,13 +374,18 @@ const InteractiveDrawingCanvas = () => {
             }
         }
 
+      // ... previous manual logic ...
+
         if (!nextData) {
+            // UPDATED: Now passing 'currentThread' as the final argument
+            // This ensures the engine knows we are inside a thread and generates relevant follow-ups
              nextData = getAdaptivePromptWithSentiment(
                 fullMetrics,
                 { primaryStyle, secondaryStyleLabel }, 
                 consistency,
                 lastUsedTags,
-                history.length
+                history.length,
+                currentThread // <--- ADD THIS!
             );
         }
         
